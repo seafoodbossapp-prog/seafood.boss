@@ -1,13 +1,12 @@
-<!-- 檔名：SeafoodBossApp_Product_v1.0.html -->
-<!-- 版本：Product v1.0 (Track A - Stable Release) -->
-<!-- 核心：基於 v4.8 架構，移除 AI 連線邏輯，替換為靜態服務說明頁面。 -->
-<!-- 定位：正式販售、客戶使用、無 API Key 需求。 -->
+<!-- 檔名：index.html -->
+<!-- 版本：Customer Update v5.0 (No AI) -->
+<!-- 核心：移除 AI 連線，僅保留介面。對應舊有的 sw-v4.8.js 路徑。 -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SEAFOOD.BOSS (Product v1.0)</title>
+    <title>SEAFOOD.BOSS</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#0284c7"> 
@@ -151,7 +150,7 @@
         const DB_KEY_LOGS = 'sf_logs';                 
         const DB_KEY_SETTINGS = 'sf_settings';         
         const DB_KEY_ENV = 'sf_daily_env';             
-        // DB_KEY_CHAT removed for Product Version
+        // DB_KEY_CHAT removed for Customer Version
 
         // --- Helpers ---
         const getTodayStr = () => new Date().toISOString().split('T')[0];
@@ -186,8 +185,6 @@
             return { isListening, startListening };
         };
 
-        // useTTS removed for Product Version
-
         // --- Components ---
 
         const MainHeader = ({ title = "SEAFOOD.BOSS", showKey = false, onKeyClick, themeClass = "header-gradient" }) => (
@@ -198,7 +195,7 @@
                     </div>
                     <div className="leading-tight">
                         <div className="font-black text-sm tracking-wider uppercase">{title}</div>
-                        <div className="text-[10px] opacity-80 font-mono">Product v1.0</div>
+                        <div className="text-[10px] opacity-80 font-mono">v5.0</div>
                     </div>
                 </div>
                 {showKey && (
@@ -276,7 +273,7 @@
 
         // --- Pages ---
 
-        // A. Dashboard (Product v1.0)
+        // A. Dashboard
         const Dashboard = ({ setPage, transactions, logs, setLogs, activeTimer, startTimer, stopTimer, settings }) => {
             const today = getTodayStr();
             const todayStats = useMemo(() => {
@@ -295,7 +292,7 @@
                 <div className="dashboard-container">
                     <MainHeader />
                     <div className="sticky-top-area">
-                        {/* AI Entry Point preserved for UI consistency, but leads to Dummy Page */}
+                        {/* AI Entry Point: Leads to Dummy Page */}
                         <div onClick={() => setPage('ai')} className="bg-white rounded-xl p-2 pl-4 pr-2 flex items-center justify-between cursor-pointer border-l-4 border-ai-main shadow-sm active:scale-95 transition-transform mb-3">
                             <div className="flex items-center space-x-3">
                                 <div className="w-8 h-8 bg-ai-main rounded-full flex items-center justify-center text-white shadow-md"><i className="fa-solid fa-robot text-xs"></i></div>
@@ -346,7 +343,7 @@
             );
         };
 
-        // B. Operations (Product v1.0 - Same as v4.8)
+        // B. Operations
         const Operations = ({ transactions, setTransactions, settings, saveSettings, envData, setEnvData }) => {
             const [period, setPeriod] = useState('day'); 
             const [showAddModal, setShowAddModal] = useState(false);
@@ -601,10 +598,8 @@
             );
         };
 
-        // C. Private Secretary (Product v1.0 - Dummy Version)
-        // 說明：根據協議，此版本不執行 API 連線，僅顯示靜態說明介面。
+        // C. Private Secretary (Customer Version - Dummy)
         const PrivateSecretary = ({ settings, saveSettings, transactions, envData, logs }) => {
-             // 移除所有 Chat State, Voice Input, API Key Check
              return (
                 <div className="scrollable-page bg-slate-50 relative flex flex-col h-screen">
                     <div className="sticky top-0 z-[60]">
@@ -647,7 +642,6 @@
                          </div>
                     </div>
                     
-                    {/* 底部導航欄留白 */}
                     <div className="h-[80px]"></div>
                 </div>
              );
@@ -657,7 +651,6 @@
             const [page, setPage] = useState('dashboard');
             const [transactions, setTransactions] = useState([]);
             const [logs, setLogs] = useState([]);
-            // Product Version: Removed apiKey from default settings
             const [settings, setSettings] = useState({ dailyFixedCost: 0, costItems: [] });
             const [envData, setEnvData] = useState({});
             const [activeTimer, setActiveTimer] = useState(null);
@@ -713,9 +706,10 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
 
+        // IMPORTANT: 這裡必須對應你的 sw-v4.8.js
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw-product-v1.0.js').then(registration => {
+                navigator.serviceWorker.register('./sw-v4.8.js').then(registration => {
                     registration.onupdatefound = () => {
                         const installingWorker = registration.installing;
                         installingWorker.onstatechange = () => {
