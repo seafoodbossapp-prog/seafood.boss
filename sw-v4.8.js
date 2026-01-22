@@ -1,11 +1,9 @@
-/* 檔名：sw-v4.8.js */
-/* 核心：覆蓋舊版，強制客戶端更新為無 AI 的 index.html */
-
-// Cache Name 更新為 v5.0 以強制重新下載
-const CACHE_NAME = 'seafood-boss-customer-v5.0';
+/* 檔名：sw-v4.8.js (v6.0.A Core) */
+const CACHE_NAME = 'seafood-boss-v6.0.A-final'; // 更新版本號
 
 const ASSETS_TO_CACHE = [
-    './index.html',  // 關鍵：這裡必須是 index.html
+    './',
+    './index.html',
     './manifest.json',
     './icons/icon-192.png',
     './icons/icon-512.png',
@@ -17,10 +15,11 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME)
         .then((cache) => {
-            console.log('[SW] Caching app shell');
+            console.log('[SW] Caching assets');
             return cache.addAll(ASSETS_TO_CACHE);
         })
     );
@@ -44,7 +43,6 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.match(event.request).then((response) => {
             return response || fetch(event.request).catch(() => {
-                // 離線狀態下，如果請求 HTML，一律回傳 index.html
                 if (event.request.headers.get('accept').includes('text/html')) {
                     return caches.match('./index.html');
                 }

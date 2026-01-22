@@ -1,59 +1,22 @@
-老哥，這點很關鍵。
-
-為了確保 【A】產品版 在客戶手機上安裝時，不會跟舊的測試版 (v4.8) 打架或覆蓋，強烈建議更新 manifest.json。
-
-雖然 ICON 圖檔可以用舊的（不用重做圖），但 JSON 裡的設定（尤其是 start_url 和 name）必須對應正式版規範。
-
-請在專案根目錄建立/覆蓋 manifest.json，內容如下：
-
-檔案 3：manifest.json (Product v1.0 專用)
-code
-JSON
-download
-content_copy
-expand_less
 {
   "name": "SEAFOOD.BOSS",
   "short_name": "SeafoodBoss",
-  "start_url": "./index.html",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#F8FAFC",
-  "theme_color": "#0284c7",
+  "theme_color": "#0ea5e9",
   "orientation": "portrait",
+  "scope": "/",
   "icons": [
     {
-      "src": "./icons/icon-192.png",
+      "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "./icons/icon-512.png",
+      "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
   ]
 }
-關於 Icons 與目錄結構提醒：
-
-老哥，既然是轉移交接，請確保你的資料夾結構如下，這樣 GitHub Pages 才能正確抓到圖：
-
-code
-Text
-download
-content_copy
-expand_less
-/ (根目錄)
-  ├── index.html           <-- (原 SeafoodBossApp_Product_v1.0.html 上傳後改名)
-  ├── sw-product-v1.0.js   <-- (我剛給你的 SW 檔)
-  ├── manifest.json        <-- (上面這個新的)
-  └── icons/               <-- (保留原本 v4.8 的圖檔資料夾即可)
-      ├── icon-192.png
-      └── icon-512.png
-
-重點說明：
-
-start_url: 我設定為 ./index.html。這配合了你「上傳 GitHub 改名 index.html」的戰略。
-
-Icons: 直接沿用舊圖檔即可，不需要新的，只要路徑對 (./icons/...) 就行。
-
-準備好後，請將這三份檔案 (HTML, SW, JSON) 加上 Icons 資料夾一起推上 GitHub。
