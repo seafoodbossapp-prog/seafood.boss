@@ -1,5 +1,5 @@
-<!-- 檔名：index.html (Source: SeafoodBossApp_v6.3.html) -->
-<!-- 版本：v6.3 (Sticky Header + Better Nav + Data Safe) -->
+<!-- 檔名：index.html (Source: SeafoodBossApp_v6.4.html) -->
+<!-- 版本：v6.4 (Stable Layout + Enhanced ToDo + Alarm) -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -35,9 +35,11 @@
                     },
                     animation: {
                         'pop': 'pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                        'flash': 'flash 1s infinite',
                     },
                     keyframes: {
-                        pop: { '0%': { transform: 'scale(0.95)', opacity: '0' }, '100%': { transform: 'scale(1)', opacity: '1' } }
+                        pop: { '0%': { transform: 'scale(0.95)', opacity: '0' }, '100%': { transform: 'scale(1)', opacity: '1' } },
+                        flash: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.5', backgroundColor: '#FECDD3' } }
                     }
                 }
             }
@@ -45,22 +47,42 @@
     </script>
 
     <style>
+        /* Layout Locking: The most important fix for v6.4 */
         body {
             background-color: #F8FAFC;
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: none;
             user-select: none;
+            /* Lock Body */
+            position: fixed; 
+            inset: 0;
+            overflow: hidden;
         }
+        
+        /* Scrollable Container */
+        .scroll-container {
+            position: absolute;
+            top: 56px; /* Header Height */
+            bottom: 0;
+            left: 0;
+            right: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 100px; /* Safe area for bottom nav */
+        }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
         .glass-nav { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 -4px 20px rgba(0,0,0,0.03); }
         .safe-top { padding-top: env(safe-area-inset-top); }
-        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
         
-        /* Sticky Header Fix */
-        .sticky-wrapper { position: sticky; top: 56px; z-index: 40; background-color: #F8FAFC; padding-bottom: 10px; }
+        /* Sticky Header Fix within Scroll Container */
+        .sticky-wrapper { position: sticky; top: 0; z-index: 40; background-color: #F8FAFC; padding-bottom: 10px; padding-top: 10px; }
+        
+        /* Alarm Flash */
+        .alarm-active { animation: flash 0.5s infinite; background-color: #FFF1F2; }
     </style>
 </head>
 <body>
@@ -69,9 +91,9 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- Database (CRITICAL: Must match v4.8) ---
+        // --- Database ---
         const DB_TASKS = 'sb_tasks_v1';
-        const DB_TRANS = 'sf_transactions'; // Key for financial data
+        const DB_TRANS = 'sf_transactions'; 
         const DB_LOGS = 'sf_logs';
         const DB_SETTINGS = 'sf_settings';
         const DB_ENV = 'sf_daily_env';
@@ -103,36 +125,34 @@
 
         // --- Components ---
 
-        // 1. Header (Floating)
+        // 1. Header (Fixed)
         const Header = () => (
-            <div className="fixed top-0 left-0 right-0 z-50 glass safe-top border-b border-slate-100/50">
-                <div className="h-14 flex items-center justify-between px-6">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 flex items-center justify-center text-white shadow-glow">
-                            <i className="fa-solid fa-fish text-sm"></i>
-                        </div>
-                        <span className="font-bold text-slate-700 text-lg tracking-tight">SEAFOOD<span className="text-sky-500">.BOSS</span></span>
+            <div className="fixed top-0 left-0 right-0 z-50 glass safe-top border-b border-slate-100/50 h-14 flex items-center justify-between px-6">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 flex items-center justify-center text-white shadow-glow">
+                        <i className="fa-solid fa-fish text-sm"></i>
                     </div>
-                    <div className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full">v6.3</div>
+                    <span className="font-bold text-slate-700 text-lg tracking-tight">SEAFOOD<span className="text-sky-500">.BOSS</span></span>
                 </div>
+                <div className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full">v6.4</div>
             </div>
         );
 
-        // 2. Back Button (Enhanced UX)
+        // 2. Back Button
         const BackBtn = ({ onClick }) => (
-            <button onClick={onClick} className="flex items-center gap-2 bg-sky-100/50 hover:bg-sky-100 text-sky-600 px-4 py-2 rounded-full transition-colors mb-6 active:scale-95">
+            <button onClick={onClick} className="flex items-center gap-2 bg-sky-100/50 hover:bg-sky-100 text-sky-600 px-4 py-2 rounded-full transition-colors mb-4 active:scale-95 sticky top-0 z-30">
                 <i className="fa-solid fa-chevron-left text-xs"></i>
-                <span className="text-sm font-bold">返回戰情</span>
+                <span className="text-sm font-bold">返回首頁</span>
             </button>
         );
 
         // 3. Dashboard Grid
         const DashboardGrid = ({ setPage, tasksCount }) => (
-            <div className="h-full flex flex-col justify-center px-6 gap-4 animate-pop max-w-md mx-auto">
+            <div className="flex flex-col justify-center h-full px-6 gap-4 animate-pop max-w-md mx-auto pt-10">
                 <div className="grid grid-cols-2 gap-4 h-40">
                     <button onClick={() => setPage('todo')} className="bg-rose-50 rounded-3xl p-5 flex flex-col justify-between items-start text-left active:scale-95 transition-transform shadow-soft">
                         <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-rose-500 shadow-sm"><i className="fa-solid fa-check text-lg"></i></div>
-                        <div><div className="text-2xl font-black text-slate-700">{tasksCount}</div><div className="text-xs font-bold text-rose-500 opacity-80">今日重點</div></div>
+                        <div><div className="text-2xl font-black text-slate-700">{tasksCount}</div><div className="text-xs font-bold text-rose-500 opacity-80">待辦事項</div></div>
                     </button>
                     <button onClick={() => setPage('ops')} className="bg-sky-50 rounded-3xl p-5 flex flex-col justify-between items-start text-left active:scale-95 transition-transform shadow-soft">
                         <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-sky-600 shadow-sm"><i className="fa-solid fa-calculator text-lg"></i></div>
@@ -152,26 +172,46 @@
             </div>
         );
 
-        // 4. Sub Pages
+        // 4. Todo Page (Enhanced v6.4)
         const TodoPage = ({ goBack }) => {
             const [tasks, setTasks] = useState([]);
             const [input, setInput] = useState('');
             const [tab, setTab] = useState('today');
+            const { isListening, startListening } = useVoiceInput((text) => setInput(prev => prev + text));
+
             useEffect(() => { const s=localStorage.getItem(DB_TASKS); if(s) setTasks(JSON.parse(s)); }, []);
             const save = (n) => { setTasks(n); localStorage.setItem(DB_TASKS, JSON.stringify(n)); };
             const add = (t) => { if(!t.trim()) return; save([{id:Date.now(), text:t, done:false, tab}, ...tasks]); setInput(''); };
             const list = tasks.filter(t => t.tab === tab);
+            const chips = ['叫貨', '款項', '員工', '修繕', '其他'];
+
             return (
-                <div className="pt-20 px-6 min-h-screen bg-white animate-pop pb-32">
+                <div className="pt-4 px-6 min-h-full bg-white animate-pop pb-32">
                     <BackBtn onClick={goBack} />
-                    <div className="flex items-center mb-6"><h2 className="text-2xl font-black text-slate-700">今日重點</h2></div>
+                    <div className="flex items-center mb-4"><h2 className="text-2xl font-black text-slate-700">待辦事項</h2></div>
                     <div className="flex bg-slate-100 p-1 rounded-xl mb-6">{['today','tomorrow'].map(t=><button key={t} onClick={()=>setTab(t)} className={`flex-1 py-2 rounded-lg text-xs font-bold ${tab===t?'bg-white text-rose-500 shadow-sm':'text-slate-400'}`}>{t==='today'?'今日火線':'明日預排'}</button>)}</div>
-                    <div className="space-y-3">{list.map(t=>(<div key={t.id} className="flex items-center p-3 rounded-xl border border-slate-50 shadow-sm bg-white"><button onClick={()=>save(tasks.map(i=>i.id===t.id?{...i,done:!i.done}:i))} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-3 ${t.done?'bg-rose-500 border-rose-500':'border-slate-200'}`}>{t.done&&<i className="fa-solid fa-check text-white text-xs"></i>}</button><span className={`flex-1 text-sm font-bold ${t.done?'text-slate-300 line-through':'text-slate-700'}`}>{t.text}</span><button onClick={()=>save(tasks.filter(i=>i.id!==t.id))} className="text-slate-300"><i className="fa-solid fa-trash"></i></button></div>))}</div>
-                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 flex gap-2"><input value={input} onChange={e=>setInput(e.target.value)} placeholder="新增任務..." className="flex-1 bg-slate-50 rounded-xl px-4 py-3 text-sm focus:outline-none" /><button onClick={()=>add(input)} className="w-12 rounded-xl bg-rose-500 text-white"><i className="fa-solid fa-plus"></i></button></div>
+                    
+                    {/* Chips */}
+                    <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar">
+                        {chips.map(c => <button key={c} onClick={() => setInput(prev => prev + c + ' ')} className="px-3 py-1 rounded-full bg-rose-50 text-rose-500 text-xs font-bold border border-rose-100 whitespace-nowrap active:scale-95 transition-transform">{c}</button>)}
+                    </div>
+
+                    <div className="space-y-3 mb-24">
+                        {list.length === 0 && <div className="text-center text-slate-300 py-10">尚無任務</div>}
+                        {list.map(t=>(<div key={t.id} className="flex items-center p-3 rounded-xl border border-slate-50 shadow-sm bg-white"><button onClick={()=>save(tasks.map(i=>i.id===t.id?{...i,done:!i.done}:i))} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-3 ${t.done?'bg-rose-500 border-rose-500':'border-slate-200'}`}>{t.done&&<i className="fa-solid fa-check text-white text-xs"></i>}</button><span className={`flex-1 text-sm font-bold ${t.done?'text-slate-300 line-through':'text-slate-700'}`}>{t.text}</span><button onClick={()=>save(tasks.filter(i=>i.id!==t.id))} className="text-slate-300"><i className="fa-solid fa-trash"></i></button></div>))}
+                    </div>
+                    
+                    {/* Input Area */}
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 flex gap-2 z-50 safe-bottom">
+                        <button onClick={startListening} className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center"><i className="fa-solid fa-microphone"></i></button>
+                        <input value={input} onChange={e=>setInput(e.target.value)} placeholder="新增任務..." className="flex-1 bg-slate-50 rounded-xl px-4 py-2 text-sm focus:outline-none" />
+                        <button onClick={()=>add(input)} className="w-12 rounded-xl bg-rose-500 text-white"><i className="fa-solid fa-plus"></i></button>
+                    </div>
                 </div>
             );
         };
 
+        // 5. Operations Page (Fixed Layout)
         const OperationsPage = ({ goBack, transactions, setTransactions, settings, saveSettings, envData, setEnvData }) => {
             const [period, setPeriod] = useState('day'); 
             const [showAddModal, setShowAddModal] = useState(false);
@@ -180,7 +220,6 @@
             const [isCalExpanded, setIsCalExpanded] = useState(true);
             const [selectedDate, setSelectedDate] = useState(getToday());
             const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
-            
             const [date, setDate] = useState(getToday());
             const [type, setType] = useState('income');
             const [amount, setAmount] = useState('');
@@ -189,7 +228,6 @@
             const [tempFixedCost, setTempFixedCost] = useState(settings.dailyFixedCost || '');
             const [selectedCostItems, setSelectedCostItems] = useState(settings.costItems || []);
 
-            // Logic copied from v4.8
             const toggleCostItem = (item) => { if(selectedCostItems.includes(item)) setSelectedCostItems(selectedCostItems.filter(i => i !== item)); else setSelectedCostItems([...selectedCostItems, item]); };
             const currentEnv = envData[selectedDate] || { weather: 'sunny', traffic: 'normal' };
             const updateEnv = (key, value) => { const newEnv = { ...envData, [selectedDate]: { ...currentEnv, [key]: value } }; setEnvData(newEnv); localStorage.setItem(DB_ENV, JSON.stringify(newEnv)); };
@@ -215,12 +253,9 @@
             const TrafficBtn = ({ val, label, colorClass }) => (<button onClick={() => updateEnv('traffic', val)} className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${currentEnv.traffic === val ? colorClass + ' text-white border-transparent shadow-md' : 'bg-white text-gray-400 border-gray-200'}`}>{label}</button>);
 
             return (
-                <div className="pt-20 min-h-screen bg-slate-50 animate-pop pb-32">
-                    <div className="px-4"><BackBtn onClick={goBack} /></div>
-                    
-                    {/* Sticky Header Wrapper */}
-                    <div className="sticky-wrapper px-4 shadow-sm border-b border-slate-100 mb-4">
-                        <div className="flex items-center justify-between mb-4"><h2 className="text-2xl font-black text-slate-700">內部營運</h2></div>
+                <div className="pt-4 px-4 min-h-full bg-slate-50 animate-pop pb-32">
+                    <BackBtn onClick={goBack} />
+                    <div className="sticky-wrapper shadow-sm rounded-xl mb-4 p-3 bg-white">
                         <div className="flex justify-between items-center mb-2">
                             <div className="bg-slate-100 p-0.5 rounded-lg inline-flex">{['day', 'month', 'year'].map(p => (<button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${period === p ? 'bg-sky-500 text-white shadow' : 'text-gray-500'}`}>{p === 'day' ? '日' : p === 'month' ? '月' : '年'}</button>))}</div>
                             {period === 'day' && <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="bg-white border border-slate-200 text-sky-600 text-xs font-bold py-1 px-2 rounded-md focus:outline-none" />}
@@ -232,31 +267,57 @@
                         <div className="grid grid-cols-2 gap-4"><button onClick={() => {setType('income'); setCat('現金'); setDate(selectedDate); resetForm(); setShowAddModal(true);}} className="bg-white text-sky-600 border border-sky-100 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center text-sm active:scale-95 transition-transform"><i className="fa-solid fa-plus mr-2"></i> 記進帳</button><button onClick={() => {setType('expense'); setCat('進貨'); setDate(selectedDate); resetForm(); setShowAddModal(true);}} className="bg-white text-rose-500 border border-rose-100 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center text-sm active:scale-95 transition-transform"><i className="fa-solid fa-minus mr-2"></i> 記出帳</button></div>
                     </div>
 
-                    <div className="px-4 space-y-3">
+                    <div className="space-y-3">
                         {period === 'month' && (<div className="mb-4 bg-white rounded-xl p-3 card-shadow border border-slate-100"><div className="flex justify-between items-center mb-2 cursor-pointer" onClick={() => setIsCalExpanded(!isCalExpanded)}><span className="text-xs font-bold text-gray-400">日曆視圖</span><i className={`fa-solid fa-chevron-${isCalExpanded ? 'up' : 'down'} text-gray-400 text-xs`}></i></div>{isCalExpanded && (<div className="animate-fade-in"><div className="grid grid-cols-7 gap-1 mb-2 text-center">{['日','一','二','三','四','五','六'].map(d => <span key={d} className="text-[10px] text-gray-400 font-bold">{d}</span>)}</div><div className="grid grid-cols-7 gap-1">{calendarDays.map((d, i) => { if(!d) return <div key={i}></div>; const s = stats.dailyStats[d.dateStr]; const hasData = s && (s.income > 0 || s.expense > 0); const isSelected = selectedDate === d.dateStr; return ( <div key={i} onClick={() => setSelectedDate(d.dateStr)} className={`aspect-square flex flex-col items-center justify-center rounded-lg cursor-pointer border transition-colors ${isSelected ? 'bg-sky-600 border-sky-600' : 'border-transparent hover:bg-gray-50'}`}> <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-gray-500'}`}>{d.day}</span> <div className={`w-1.5 h-1.5 rounded-full mt-1 ${hasData ? 'bg-green-500' : 'opacity-0'}`}></div> </div> ); })}</div></div>)}</div>)}
                         <h3 className="font-bold text-slate-700 text-xs border-l-4 border-sky-500 pl-2 mb-2">流水帳明細 ({selectedDate})</h3>
                         {stats.listData.length === 0 ? (<div className="text-center py-10 opacity-40"><i className="fa-solid fa-clipboard-list text-3xl mb-2 text-gray-300"></i><p className="text-xs text-gray-400">尚無資料</p></div>) : (stats.listData.map((item, idx) => (<div key={idx} onClick={() => openEdit(item)} className="bg-white p-3 rounded-lg flex justify-between items-center shadow-sm border-l-2 border-slate-100 active:bg-gray-50 cursor-pointer"><div className="flex items-center"><div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${item.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}><i className={`fa-solid ${item.type === 'income' ? 'fa-arrow-down' : 'fa-arrow-up'} text-xs`}></i></div><div><div className="flex items-center gap-2"><span className="font-bold text-slate-700 text-sm">{item.category}</span><span className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded">{item.timestamp?.slice(0,5)}</span></div>{item.note && <p className="text-xs text-gray-400 truncate max-w-[150px]">{item.note}</p>}</div></div><span className={`font-bold text-base ${item.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{item.type === 'income' ? '+' : '-'}{item.amount.toLocaleString()}</span></div>)))}
                     </div>
-                    {/* Modals omitted for brevity but functionality logic is in handleSave */}
+                    {/* Modals are controlled by showAddModal/showSettingModal states within OperationsPage */}
                     {showAddModal && (<div className="fixed inset-0 bg-slate-900/50 z-[200] flex items-end sm:items-center justify-center sm:p-4 modal-overlay"><div className="bg-white rounded-t-2xl sm:rounded-xl w-full max-w-sm p-6 shadow-2xl animate-fade-in"><div className="flex justify-between items-center mb-6"><h3 className="font-black text-xl text-slate-700">{editingId ? '編輯紀錄' : (type === 'income' ? '記一筆進帳' : '記一筆出帳')}</h3>{editingId && <button onClick={handleDelete} className="text-rose-500 font-bold text-sm"><i className="fa-solid fa-trash mr-1"></i>刪除</button>}</div><div className="space-y-5"><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-100 p-3 rounded-lg font-bold text-slate-700" /><div className="relative"><span className="absolute left-0 top-2 text-2xl font-bold text-slate-700">$</span><input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full pl-6 text-4xl font-black border-b-2 border-slate-200 py-2 focus:outline-none text-slate-700 placeholder-gray-200" placeholder="0" autoFocus /></div><div className="flex flex-wrap gap-2">{type === 'income' ? ['現金', '刷卡', '外送平台', '其他'].map(c => <button key={c} onClick={() => setCat(c)} className={`px-4 py-2 rounded-full text-xs font-bold border transition-colors ${cat === c ? 'bg-sky-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>{c}</button>) : ['進貨', '人事', '雜支', '修繕', '房租'].map(c => <button key={c} onClick={() => setCat(c)} className={`px-4 py-2 rounded-full text-xs font-bold border transition-colors ${cat === c ? 'bg-sky-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>{c}</button>)}</div><input type="text" value={note} onChange={e => setNote(e.target.value)} className="w-full bg-gray-50 rounded-lg p-3 text-sm focus:outline-none" placeholder="備註 (選填)..." /><div className="flex gap-3 mt-4"><button onClick={() => setShowAddModal(false)} className="flex-1 py-4 text-gray-500 font-bold bg-gray-100 rounded-xl">取消</button><button onClick={handleSave} className="flex-1 py-4 bg-sky-600 text-white rounded-xl font-bold shadow-lg">確認</button></div></div></div></div>)}
                     {showSettingModal && (<div className="fixed inset-0 bg-slate-900/50 z-[200] flex items-center justify-center p-4 modal-overlay"><div className="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl"><h3 className="font-bold text-lg mb-2 text-slate-700">日均營運成本</h3><p className="text-xs text-gray-400 mb-4">勾選包含項目，並輸入每日總攤提額 (預設為0)</p><div className="flex flex-wrap gap-2 mb-6">{costOptions.map(item => (<button key={item} onClick={() => toggleCostItem(item)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${selectedCostItems.includes(item) ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-gray-400 border-gray-200'}`}>{selectedCostItems.includes(item) && <i className="fa-solid fa-check mr-1"></i>}{item}</button>))}</div><div className="relative"><span className="absolute left-0 top-3 text-xl font-bold text-slate-700">$</span><input type="number" value={tempFixedCost} onChange={e => setTempFixedCost(e.target.value)} className="w-full pl-6 text-3xl font-black border-b-2 border-slate-700 py-2 mb-6 focus:outline-none text-slate-700" placeholder="0" /></div><div className="flex gap-3"><button onClick={() => setShowSettingModal(false)} className="flex-1 py-3 text-gray-500 font-bold bg-gray-100 rounded-lg">取消</button><button onClick={() => { saveSettings({...settings, dailyFixedCost: parseInt(tempFixedCost) || 0, costItems: selectedCostItems}); setShowSettingModal(false); }} className="flex-1 py-3 bg-sky-600 text-white rounded-lg font-bold">儲存</button></div></div></div>)}
                 </div>
             );
         };
 
-        const TimerPage = ({ goBack, activeTimer, startTimer, stopTimer }) => (
-            <div className="pt-20 px-6 min-h-screen bg-white animate-pop">
-                <BackBtn onClick={goBack} />
-                <div className="flex items-center mb-10"><h2 className="text-2xl font-black text-slate-700">暫離提醒</h2></div>
-                <div className="grid grid-cols-1 gap-6">
-                    {[10, 15, 20].map(m => {
-                        const isActive = activeTimer && activeTimer.minutes === m;
-                        return (<button key={m} onClick={() => isActive ? stopTimer() : startTimer(m)} className={`relative h-20 rounded-2xl overflow-hidden cursor-pointer active:scale-95 transition-all flex items-center justify-center w-full shadow-sm border ${isActive ? 'bg-orange-500 border-orange-500 animate-pulse' : 'bg-orange-50 border-orange-100'}`}>{isActive && <div className="absolute left-0 top-0 bottom-0 bg-white/20 z-0 animate-progress" style={{ animationDuration: `${m * 60}s`, width: '100%' }}></div>}<div className="relative z-10 flex flex-col items-center"><i className="fa-solid fa-clock text-2xl mb-1 text-orange-400"></i><span className={`font-black text-xl ${isActive ? 'text-white' : 'text-orange-500'}`}>{m} <span className="text-sm">MIN</span></span></div></button>);
-                    })}
-                    {activeTimer && <div className="text-center text-orange-500 font-bold mt-4 animate-bounce">計時進行中...</div>}
+        // 6. Timer Page (Enhanced v6.4 with Alarm)
+        const TimerPage = ({ goBack, activeTimer, startTimer, stopTimer }) => {
+            const [alarm, setAlarm] = useState(false);
+            useEffect(() => {
+                if (activeTimer && activeTimer.alarmTriggered) {
+                    setAlarm(true);
+                    if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
+                    // Try to play sound if user interacted
+                    // const audio = new Audio('path_to_beep.mp3'); audio.play().catch(e=>console.log(e));
+                } else {
+                    setAlarm(false);
+                }
+            }, [activeTimer]);
+
+            const stopAlarm = () => { stopTimer(); setAlarm(false); };
+
+            return (
+                <div className={`pt-4 px-6 min-h-full bg-white animate-pop safe-bottom ${alarm ? 'alarm-active' : ''}`}>
+                    <BackBtn onClick={goBack} />
+                    <div className="flex items-center mb-10"><h2 className="text-2xl font-black text-slate-700">暫離提醒</h2></div>
+                    
+                    {alarm ? (
+                         <div className="flex flex-col items-center justify-center h-[50vh]">
+                            <i className="fa-solid fa-bell text-6xl text-rose-500 animate-bounce mb-6"></i>
+                            <h2 className="text-3xl font-black text-slate-800 mb-8">時間到！</h2>
+                            <button onClick={stopAlarm} className="px-10 py-4 bg-rose-500 text-white rounded-full text-xl font-bold shadow-lg shadow-rose-200">關閉提醒</button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-6">
+                            {[10, 15, 20].map(m => {
+                                const isActive = activeTimer && activeTimer.minutes === m;
+                                return (<button key={m} onClick={() => isActive ? stopTimer() : startTimer(m)} className={`relative h-20 rounded-2xl overflow-hidden cursor-pointer active:scale-95 transition-all flex items-center justify-center w-full shadow-sm border ${isActive ? 'bg-orange-500 border-orange-500 animate-pulse' : 'bg-orange-50 border-orange-100'}`}>{isActive && <div className="absolute left-0 top-0 bottom-0 bg-white/20 z-0 animate-progress" style={{ animationDuration: `${m * 60}s`, width: '100%' }}></div>}<div className="relative z-10 flex flex-col items-center"><i className="fa-solid fa-clock text-2xl mb-1 text-orange-400"></i><span className={`font-black text-xl ${isActive ? 'text-white' : 'text-orange-500'}`}>{m} <span className="text-sm">MIN</span></span></div></button>);
+                            })}
+                            {activeTimer && <div className="text-center text-orange-500 font-bold mt-4 animate-bounce">計時進行中...</div>}
+                        </div>
+                    )}
                 </div>
-            </div>
-        );
+            );
+        };
 
         const NotePage = ({ goBack, logs, setLogs }) => {
             const [input, setInput] = useState('');
@@ -264,7 +325,7 @@
             const add = () => { if(!input.trim()) return; const n={id:Date.now(), date:getToday(), timestamp:formatTime(), text:input}; const u=[n,...logs]; setLogs(u); localStorage.setItem(DB_LOGS, JSON.stringify(u)); setInput(''); };
             const del = (id) => { const u=logs.filter(l=>l.id!==id); setLogs(u); localStorage.setItem(DB_LOGS, JSON.stringify(u)); };
             return (
-                <div className="pt-20 px-6 min-h-screen bg-white animate-pop">
+                <div className="pt-4 px-6 min-h-full bg-white animate-pop">
                     <BackBtn onClick={goBack} />
                     <div className="flex items-center mb-6"><h2 className="text-2xl font-black text-slate-700">營運筆記</h2></div>
                     <div className="flex gap-2 mb-6"><input value={input} onChange={e=>setInput(e.target.value)} placeholder="記事..." className="flex-1 bg-slate-50 rounded-xl px-4 py-3 text-sm focus:outline-none" /><button onClick={startListening} className="w-10 rounded-xl border border-slate-200 text-slate-400"><i className="fa-solid fa-microphone"></i></button><button onClick={add} className="w-12 rounded-xl bg-slate-600 text-white"><i className="fa-solid fa-plus"></i></button></div>
@@ -286,29 +347,40 @@
                 const l = localStorage.getItem(DB_LOGS); if(l) setLogs(JSON.parse(l));
                 const s = localStorage.getItem(DB_SETTINGS); if(s) setSettings(JSON.parse(s));
                 const e = localStorage.getItem(DB_ENV); if(e) setEnvData(JSON.parse(e));
+                
+                // Permission for notifications
+                if ("Notification" in window) Notification.requestPermission();
             }, []);
             const saveSettings = (n) => { setSettings(n); localStorage.setItem(DB_SETTINGS, JSON.stringify(n)); };
-            const startTimer = (m) => { setActiveTimer({ minutes: m, startTime: Date.now() }); };
+            const startTimer = (m) => { setActiveTimer({ minutes: m, startTime: Date.now(), alarmTriggered: false }); };
             const stopTimer = () => { setActiveTimer(null); };
+            
+            // Timer & Alarm Logic
             useEffect(() => {
                 let interval;
                 if (activeTimer) {
                     interval = setInterval(() => {
                         const elapsed = (Date.now() - activeTimer.startTime) / 1000;
-                        if (elapsed >= activeTimer.minutes * 60) {
-                            if(navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                            alert('轉場時間到！'); setActiveTimer(null);
+                        if (elapsed >= activeTimer.minutes * 60 && !activeTimer.alarmTriggered) {
+                            setActiveTimer(prev => ({ ...prev, alarmTriggered: true }));
+                            // Send Notification
+                            if (Notification.permission === "granted") {
+                                new Notification("SEAFOOD.BOSS", { body: "暫離時間到！請返回工作崗位。" });
+                            }
                         }
                     }, 1000);
                 } return () => clearInterval(interval);
             }, [activeTimer]);
+
             const tasksCount = useMemo(() => { const t = localStorage.getItem(DB_TASKS); if(!t) return 0; return JSON.parse(t).filter(i => i.tab === 'today' && !i.done).length; }, [page]); 
             const goHome = () => setPage('home');
 
             return (
-                <div className="min-h-screen pb-safe-bottom bg-slate-50">
+                <div className="min-h-screen bg-slate-50">
                     <Header />
-                    <div className="h-screen pt-14 pb-20">
+                    
+                    {/* Locked Layout Container */}
+                    <div className="scroll-container">
                         {page === 'home' && <DashboardGrid setPage={setPage} tasksCount={tasksCount} />}
                         {page === 'todo' && <TodoPage goBack={goHome} />}
                         {page === 'ops' && <OperationsPage goBack={goHome} transactions={transactions} setTransactions={setTransactions} settings={settings} saveSettings={saveSettings} envData={envData} setEnvData={setEnvData} />}
@@ -316,14 +388,16 @@
                         {page === 'note' && <NotePage goBack={goHome} logs={logs} setLogs={setLogs} />}
                         {page === 'ai' && (<div className="pt-20 px-6 text-center animate-pop"><div className="w-24 h-24 bg-white rounded-full mx-auto flex items-center justify-center shadow-soft mb-6 border-4 border-sky-50 text-sky-500 text-4xl"><i className="fa-solid fa-user-tie"></i></div><h2 className="text-xl font-black text-slate-700 mb-2">AI 智慧顧問服務</h2><div className="bg-sky-50 text-sky-500 px-3 py-1 rounded-full text-[10px] font-bold mb-6 inline-block">PLANNING</div><p className="text-sm text-slate-500 max-w-xs mx-auto">本功能為進階訂閱服務，目前尚在規劃中。</p><BackBtn onClick={goHome} /></div>)}
                     </div>
-                    {page === 'home' && (<div className="fixed bottom-8 left-6 right-6 glass-nav h-16 rounded-2xl flex items-center justify-around px-2 z-50"><button onClick={() => setPage('home')} className="flex flex-col items-center gap-1 text-sky-600 w-full"><i className="fa-solid fa-grid-2 text-lg"></i><span className="text-[10px] font-bold">戰情</span></button><button onClick={() => setPage('ops')} className="flex flex-col items-center gap-1 text-slate-400 w-full hover:text-sky-600"><i className="fa-solid fa-chart-pie text-lg"></i><span className="text-[10px] font-bold">營運</span></button><button onClick={() => setPage('ai')} className="flex flex-col items-center gap-1 text-slate-400 w-full hover:text-sky-600"><i className="fa-solid fa-user-tie text-lg"></i><span className="text-[10px] font-bold">秘書</span></button></div>)}
+
+                    {/* Bottom Nav */}
+                    {page === 'home' && (<div className="fixed bottom-8 left-6 right-6 glass-nav h-16 rounded-2xl flex items-center justify-around px-2 z-50"><button onClick={() => setPage('home')} className="flex flex-col items-center gap-1 text-sky-600 w-full"><i className="fa-solid fa-grid-2 text-lg"></i><span className="text-[10px] font-bold">首頁</span></button><button onClick={() => setPage('ops')} className="flex flex-col items-center gap-1 text-slate-400 w-full hover:text-sky-600"><i className="fa-solid fa-chart-pie text-lg"></i><span className="text-[10px] font-bold">營運</span></button><button onClick={() => setPage('ai')} className="flex flex-col items-center gap-1 text-slate-400 w-full hover:text-sky-600"><i className="fa-solid fa-user-tie text-lg"></i><span className="text-[10px] font-bold">秘書</span></button></div>)}
                 </div>
             );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
-        if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw-v6.3.js')); }
+        if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw-v6.4.js')); }
     </script>
 </body>
 </html>
