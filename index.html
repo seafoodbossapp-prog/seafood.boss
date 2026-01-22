@@ -1,5 +1,5 @@
 <!-- 檔名：index.html -->
-<!-- 版本：v6.0.A (Modern UI + ToDo + PWA Fix) -->
+<!-- 版本：v6.1 (Color Grid + Privacy Mode + v4.8 Core) -->
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -7,42 +7,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SEAFOOD.BOSS</title>
     
-    <!-- PWA Setup -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#F8FAFC"> 
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
 
-    <!-- Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Config -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        sky: { 500: '#0EA5E9', 600: '#0284C7' },  // 主色：淺海藍
-                        slate: { 50: '#F8FAFC', 100: '#F1F5F9', 400: '#94A3B8', 700: '#334155' }, // 底色
-                        rose: { 50: '#FFF1F2', 500: '#F43F5E' },  // 點綴：粉/紅
-                        orange: { 400: '#FB923C', 500: '#F97316' }, // 點綴：橘
+                        sky: { 50: '#F0F9FF', 500: '#0EA5E9', 600: '#0284C7' },
+                        rose: { 50: '#FFF1F2', 500: '#F43F5E' },
+                        orange: { 50: '#FFF7ED', 400: '#FB923C', 500: '#F97316' },
+                        slate: { 50: '#F8FAFC', 100: '#F1F5F9', 400: '#94A3B8', 600: '#475569', 700: '#334155' },
                     },
                     boxShadow: {
-                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-                        'glow': '0 0 15px rgba(14, 165, 233, 0.3)',
+                        'soft': '0 8px 30px -4px rgba(0, 0, 0, 0.05)',
+                        'glow': '0 0 20px rgba(14, 165, 233, 0.25)',
                     },
                     animation: {
-                        'fade-in': 'fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        'slide-up': 'slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        'pop': 'pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
                     },
                     keyframes: {
-                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-                        slideUp: { '0%': { transform: 'translateY(10px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } }
+                        pop: { '0%': { transform: 'scale(0.95)', opacity: '0' }, '100%': { transform: 'scale(1)', opacity: '1' } }
                     }
                 }
             }
@@ -57,14 +52,10 @@
             overscroll-behavior-y: none;
             user-select: none;
         }
-        /* 隱藏捲軸但保留功能 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* 毛玻璃特效 */
-        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.3); }
-        .glass-nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(241, 245, 249, 0.5); }
-        
+        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .glass-nav { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 -4px 20px rgba(0,0,0,0.03); }
         .safe-top { padding-top: env(safe-area-inset-top); }
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
     </style>
@@ -75,7 +66,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- Database Keys ---
+        // --- Database ---
         const DB_TASKS = 'sb_tasks_v1';
         const DB_TRANS = 'sf_transactions';
         const DB_LOGS = 'sf_logs';
@@ -84,274 +75,378 @@
         // --- Utils ---
         const getToday = () => new Date().toISOString().split('T')[0];
         const formatTime = () => new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute:'2-digit' });
+        const getCalendarDays = (year, month) => {
+            const firstDay = new Date(year, month - 1, 1);
+            const lastDay = new Date(year, month, 0);
+            const days = [];
+            for(let i=0; i<firstDay.getDay(); i++) days.push(null);
+            for(let i=1; i<=lastDay.getDate(); i++) days.push({ day: i, dateStr: `${year}-${String(month).padStart(2,'0')}-${String(i).padStart(2,'0')}` });
+            return days;
+        };
 
         // --- Components ---
 
-        // 1. Header (Floating & Minimal)
+        // 1. Header
         const Header = () => (
-            <div className="fixed top-0 left-0 right-0 z-50 glass safe-top">
-                <div className="h-14 flex items-center justify-between px-5">
+            <div className="fixed top-0 left-0 right-0 z-50 glass safe-top border-b border-slate-100/50">
+                <div className="h-14 flex items-center justify-between px-6">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 flex items-center justify-center text-white shadow-glow">
                             <i className="fa-solid fa-fish text-sm"></i>
                         </div>
-                        <h1 className="font-bold text-slate-700 tracking-tight text-lg">SEAFOOD<span className="text-sky-500">.BOSS</span></h1>
+                        <span className="font-bold text-slate-700 text-lg tracking-tight">SEAFOOD<span className="text-sky-500">.BOSS</span></span>
                     </div>
-                    <div className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full">v6.0.A</div>
+                    <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
                 </div>
             </div>
         );
 
-        // 2. To-Do Card (Modern Style)
-        const TodoCard = () => {
-            const [tasks, setTasks] = useState([]);
-            const [tab, setTab] = useState('today'); // today | tomorrow
-            const [input, setInput] = useState('');
-            
-            useEffect(() => {
-                const saved = localStorage.getItem(DB_TASKS);
-                if (saved) {
-                    let parsed = JSON.parse(saved);
-                    // 跨日邏輯：如果有昨日的 tomorrow 任務，轉為今日
-                    const lastDate = localStorage.getItem('sb_last_date');
-                    const today = getToday();
-                    if (lastDate !== today) {
-                        parsed = parsed.map(t => t.tab === 'tomorrow' ? { ...t, tab: 'today' } : t);
-                        localStorage.setItem('sb_last_date', today);
-                    }
-                    setTasks(parsed);
-                } else {
-                    localStorage.setItem('sb_last_date', getToday());
-                }
-            }, []);
-
-            const saveTasks = (newTasks) => {
-                setTasks(newTasks);
-                localStorage.setItem(DB_TASKS, JSON.stringify(newTasks));
-            };
-
-            const addTask = (text) => {
-                if (!text.trim()) return;
-                const newTask = { id: Date.now(), text, done: false, tab, urgent: text.includes('!') || text.includes('急') };
-                saveTasks([newTask, ...tasks]);
-                setInput('');
-            };
-
-            const toggleTask = (id) => {
-                const updated = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
-                // 已完成的沉底排序
-                updated.sort((a, b) => a.done === b.done ? 0 : a.done ? 1 : -1);
-                saveTasks(updated);
-            };
-
-            const deleteTask = (id) => {
-                if(confirm('刪除此任務？')) saveTasks(tasks.filter(t => t.id !== id));
-            };
-
-            const chips = ['叫貨', '匯款', '排班', '客訴', '維修'];
-            const currentTasks = tasks.filter(t => t.tab === tab);
-
-            return (
-                <div className="bg-white rounded-2xl p-5 shadow-soft mb-4 animate-slide-up">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-lg font-bold text-slate-700">今日重點</h2>
-                        <div className="bg-slate-100 p-1 rounded-lg flex text-xs font-bold">
-                            <button onClick={() => setTab('today')} className={`px-3 py-1.5 rounded-md transition-all ${tab === 'today' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-400'}`}>今日</button>
-                            <button onClick={() => setTab('tomorrow')} className={`px-3 py-1.5 rounded-md transition-all ${tab === 'tomorrow' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-400'}`}>明日</button>
+        // 2. Dashboard Grid (Privacy Mode)
+        const DashboardGrid = ({ setPage, tasksCount }) => (
+            <div className="h-full flex flex-col justify-center px-6 gap-4 animate-pop max-w-md mx-auto">
+                {/* Row 1 */}
+                <div className="grid grid-cols-2 gap-4 h-40">
+                    {/* To-Do: Pink */}
+                    <button onClick={() => setPage('todo')} className="bg-rose-50 rounded-3xl p-5 flex flex-col justify-between items-start text-left active:scale-95 transition-transform shadow-soft hover:shadow-lg hover:shadow-rose-100/50">
+                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-rose-500 shadow-sm">
+                            <i className="fa-solid fa-check text-lg"></i>
                         </div>
-                    </div>
-
-                    <div className="space-y-3 min-h-[120px]">
-                        {currentTasks.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-slate-300 py-8">
-                                <i className="fa-regular fa-calendar-check text-2xl mb-2"></i>
-                                <span className="text-xs">清單空空如也，完美的開始</span>
-                            </div>
-                        ) : (
-                            currentTasks.map(t => (
-                                <div key={t.id} className="flex items-center group">
-                                    <button onClick={() => toggleTask(t.id)} className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors mr-3 shrink-0 ${t.done ? 'bg-sky-500 border-sky-500' : 'border-slate-300'}`}>
-                                        {t.done && <i className="fa-solid fa-check text-white text-[10px]"></i>}
-                                    </button>
-                                    <span className={`flex-1 text-sm font-medium transition-colors ${t.done ? 'text-slate-300 line-through' : 'text-slate-700'}`}>
-                                        {t.text.replace('!', '').replace('急', '')}
-                                    </span>
-                                    {t.urgent && !t.done && <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded ml-2">急</span>}
-                                    <button onClick={() => deleteTask(t.id)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <i className="fa-solid fa-trash text-xs"></i>
-                                    </button>
-                                </div>
-                            ))
-                        )}
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-slate-50">
-                        <div className="flex gap-2 mb-3 overflow-x-auto no-scrollbar pb-1">
-                            {chips.map(c => (
-                                <button key={c} onClick={() => setInput(prev => prev + c + ' ')} className="px-3 py-1 rounded-full bg-slate-50 text-slate-500 text-[10px] font-bold border border-slate-100 whitespace-nowrap active:scale-95 transition-transform">{c}</button>
-                            ))}
+                        <div>
+                            <div className="text-2xl font-black text-slate-700">{tasksCount}</div>
+                            <div className="text-xs font-bold text-rose-500 opacity-80">今日重點</div>
                         </div>
-                        <div className="flex gap-2">
-                            <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTask(input)} placeholder="輸入任務..." className="flex-1 bg-slate-50 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-100 transition-shadow" />
-                            <button onClick={() => addTask(input)} className="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center shadow-lg shadow-sky-200 active:scale-95 transition-transform"><i className="fa-solid fa-plus"></i></button>
+                    </button>
+                    
+                    {/* Ops: Blue */}
+                    <button onClick={() => setPage('ops')} className="bg-sky-50 rounded-3xl p-5 flex flex-col justify-between items-start text-left active:scale-95 transition-transform shadow-soft hover:shadow-lg hover:shadow-sky-100/50">
+                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-sky-600 shadow-sm">
+                            <i className="fa-solid fa-calculator text-lg"></i>
                         </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // 3. Stats & Quick Action (Pulse & Flash)
-        const StatsBlock = ({ transactions, onQuickAdd }) => {
-            const today = getToday();
-            const todayNet = useMemo(() => {
-                const todays = transactions.filter(t => t.date === today);
-                const inc = todays.filter(t => t.type === 'income').reduce((a,c) => a+c.amount, 0);
-                const exp = todays.filter(t => t.type === 'expense').reduce((a,c) => a+c.amount, 0);
-                return inc - exp;
-            }, [transactions, today]);
-
-            return (
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    {/* Left: Net Income */}
-                    <div className="bg-white p-4 rounded-2xl shadow-soft flex flex-col justify-between h-32 relative overflow-hidden">
-                        <div className="z-10">
-                            <div className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">今日淨利</div>
-                            <div className={`text-2xl font-black ${todayNet >= 0 ? 'text-sky-600' : 'text-rose-500'}`}>
-                                {todayNet > 0 ? '+' : ''}{todayNet.toLocaleString()}
-                            </div>
+                        <div>
+                            <div className="text-lg font-black text-slate-700">財務</div>
+                            <div className="text-xs font-bold text-sky-600 opacity-80">營運報表</div>
                         </div>
-                        <div className="z-10 flex items-center gap-1">
-                            <div className={`w-2 h-2 rounded-full ${todayNet >= 0 ? 'bg-orange-400' : 'bg-rose-400'} animate-pulse`}></div>
-                            <span className="text-[10px] text-slate-400 font-bold">Live Update</span>
-                        </div>
-                        {/* Decor */}
-                        <i className="fa-solid fa-chart-line absolute -bottom-2 -right-2 text-6xl text-slate-50 opacity-50 transform -rotate-12"></i>
-                    </div>
-
-                    {/* Right: Quick Action */}
-                    <button onClick={onQuickAdd} className="bg-white p-4 rounded-2xl shadow-soft flex flex-col items-center justify-center h-32 active:scale-95 transition-transform group relative overflow-hidden">
-                        <div className="absolute inset-0 bg-sky-50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-sky-500 to-sky-400 flex items-center justify-center text-white shadow-glow mb-2 group-active:scale-110 transition-transform">
-                            <i className="fa-solid fa-plus text-xl"></i>
-                        </div>
-                        <span className="text-xs font-bold text-slate-600">快速記帳</span>
                     </button>
                 </div>
-            );
-        };
 
-        // 4. Operations Log (Refined)
-        const LogCard = ({ logs, setLogs }) => {
+                {/* Row 2 */}
+                <div className="grid grid-cols-2 gap-4 h-40">
+                    {/* Timer: Orange */}
+                    <button onClick={() => setPage('timer')} className="bg-orange-50 rounded-3xl p-5 flex flex-col justify-between items-start text-left active:scale-95 transition-transform shadow-soft hover:shadow-lg hover:shadow-orange-100/50">
+                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-orange-500 shadow-sm">
+                            <i className="fa-solid fa-stopwatch text-lg"></i>
+                        </div>
+                        <div>
+                            <div className="text-lg font-black text-slate-700">計時</div>
+                            <div className="text-xs font-bold text-orange-500 opacity-80">暫離模式</div>
+                        </div>
+                    </button>
+
+                    {/* Note: Gray */}
+                    <button onClick={() => setPage('note')} className="bg-slate-100 rounded-3xl p-5 flex flex-col justify-between items-start text-left active:scale-95 transition-transform shadow-soft hover:shadow-lg hover:shadow-slate-200/50">
+                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-600 shadow-sm">
+                            <i className="fa-solid fa-pen text-lg"></i>
+                        </div>
+                        <div>
+                            <div className="text-lg font-black text-slate-700">筆記</div>
+                            <div className="text-xs font-bold text-slate-500 opacity-80">營運隨記</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        );
+
+        // 3. To-Do Page (Detail)
+        const TodoPage = ({ goBack }) => {
+            const [tasks, setTasks] = useState([]);
             const [input, setInput] = useState('');
-            const addLog = () => {
-                if(!input.trim()) return;
-                const newLog = { id: Date.now(), date: getToday(), time: formatTime(), text: input };
-                const updated = [newLog, ...logs];
-                setLogs(updated);
-                localStorage.setItem(DB_LOGS, JSON.stringify(updated));
-                setInput('');
-            };
-            const deleteLog = (id) => {
-                const updated = logs.filter(l => l.id !== id);
-                setLogs(updated);
-                localStorage.setItem(DB_LOGS, JSON.stringify(updated));
-            };
+            const [tab, setTab] = useState('today');
+
+            useEffect(() => {
+                const saved = localStorage.getItem(DB_TASKS);
+                if(saved) setTasks(JSON.parse(saved));
+            }, []);
+            const save = (newTasks) => { setTasks(newTasks); localStorage.setItem(DB_TASKS, JSON.stringify(newTasks)); };
+            const add = (txt) => { if(!txt.trim()) return; save([{id:Date.now(), text:txt, done:false, tab}, ...tasks]); setInput(''); };
+            const toggle = (id) => save(tasks.map(t => t.id===id ? {...t, done:!t.done} : t));
+            const del = (id) => { if(confirm('刪除?')) save(tasks.filter(t => t.id!==id)); };
+            
+            const list = tasks.filter(t => t.tab === tab);
 
             return (
-                <div className="bg-white rounded-2xl p-5 shadow-soft mb-24">
-                    <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                        <i className="fa-solid fa-note-sticky text-orange-400"></i> 營運筆記
-                    </h3>
-                    <div className="flex gap-2 mb-4">
-                        <input value={input} onChange={e => setInput(e.target.value)} placeholder="隨手記..." className="flex-1 bg-slate-50 rounded-lg px-3 py-2 text-sm focus:outline-none border border-transparent focus:border-sky-200" />
-                        <button onClick={addLog} className="w-9 h-9 rounded-lg bg-orange-400 text-white shadow-sm active:scale-95"><i className="fa-solid fa-paper-plane text-xs"></i></button>
+                <div className="pt-20 px-6 min-h-screen bg-white animate-pop">
+                    <div className="flex items-center mb-6">
+                        <button onClick={goBack} className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 mr-4"><i className="fa-solid fa-arrow-left"></i></button>
+                        <h2 className="text-2xl font-black text-slate-700">今日重點</h2>
                     </div>
-                    <div className="space-y-3 pl-2 border-l-2 border-slate-100">
-                        {logs.slice(0, 5).map(l => (
-                            <div key={l.id} className="flex justify-between items-start group">
-                                <div className="text-xs text-slate-600 leading-relaxed">
-                                    <span className="text-[10px] text-slate-400 font-mono mr-2">{l.time}</span>
-                                    {l.text}
-                                </div>
-                                <button onClick={() => deleteLog(l.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 px-2"><i className="fa-solid fa-times"></i></button>
+                    <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
+                        {['today','tomorrow'].map(t => (
+                            <button key={t} onClick={() => setTab(t)} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${tab===t ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400'}`}>{t==='today'?'今日火線':'明日預排'}</button>
+                        ))}
+                    </div>
+                    <div className="space-y-3 mb-20">
+                        {list.length===0 && <div className="text-center text-slate-300 py-10">無任務</div>}
+                        {list.map(t => (
+                            <div key={t.id} className="flex items-center p-3 rounded-xl border border-slate-50 shadow-sm bg-white">
+                                <button onClick={() => toggle(t.id)} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-3 ${t.done ? 'bg-rose-500 border-rose-500' : 'border-slate-200'}`}>{t.done && <i className="fa-solid fa-check text-white text-xs"></i>}</button>
+                                <span className={`flex-1 text-sm font-bold ${t.done ? 'text-slate-300 line-through' : 'text-slate-700'}`}>{t.text}</span>
+                                <button onClick={() => del(t.id)} className="text-slate-300 px-2"><i className="fa-solid fa-trash"></i></button>
                             </div>
                         ))}
-                        {logs.length === 0 && <div className="text-[10px] text-slate-300 italic py-2">尚無筆記</div>}
+                    </div>
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 flex gap-2">
+                        <input value={input} onChange={e=>setInput(e.target.value)} placeholder="新增任務..." className="flex-1 bg-slate-50 rounded-xl px-4 py-3 text-sm focus:outline-none" />
+                        <button onClick={() => add(input)} className="w-12 rounded-xl bg-rose-500 text-white"><i className="fa-solid fa-plus"></i></button>
                     </div>
                 </div>
             );
         };
 
-        // 5. Bottom Nav (Floating Capsule)
-        const BottomNav = ({ page, setPage }) => (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 glass-nav px-6 py-3 rounded-full shadow-2xl flex gap-8 z-50">
-                <button onClick={() => setPage('home')} className={`flex flex-col items-center gap-1 transition-colors ${page === 'home' ? 'text-sky-600' : 'text-slate-400'}`}>
-                    <i className="fa-solid fa-layer-group text-lg"></i>
-                    <span className="text-[9px] font-bold">戰情</span>
-                </button>
-                <button onClick={() => setPage('ops')} className={`flex flex-col items-center gap-1 transition-colors ${page === 'ops' ? 'text-sky-600' : 'text-slate-400'}`}>
-                    <i className="fa-solid fa-calculator text-lg"></i>
-                    <span className="text-[9px] font-bold">營運</span>
-                </button>
-                <button onClick={() => setPage('ai')} className={`flex flex-col items-center gap-1 transition-colors ${page === 'ai' ? 'text-sky-600' : 'text-slate-400'}`}>
-                    <i className="fa-solid fa-robot text-lg"></i>
-                    <span className="text-[9px] font-bold">秘書</span>
-                </button>
-            </div>
-        );
+        // 4. Operations Page (v4.8 Core Logic + v6.1 Skin)
+        const OpsPage = ({ goBack, transactions, setTransactions, settings, saveSettings }) => {
+            const [period, setPeriod] = useState('day');
+            const [selectedDate, setSelectedDate] = useState(getToday());
+            const [showModal, setShowModal] = useState(false);
+            const [modalType, setModalType] = useState('income'); // income | expense
+            const [amount, setAmount] = useState('');
+            const [cat, setCat] = useState('現金');
+            const [note, setNote] = useState('');
 
-        // --- Pages Wrapper ---
+            // 統計邏輯 (v4.8)
+            const stats = useMemo(() => {
+                const list = transactions.filter(t => t.date === selectedDate);
+                const inc = list.filter(t => t.type==='income').reduce((a,c)=>a+c.amount,0);
+                const exp = list.filter(t => t.type==='expense').reduce((a,c)=>a+c.amount,0);
+                return { inc, exp, net: inc-exp-(settings.dailyFixedCost||0), list };
+            }, [transactions, selectedDate, settings]);
+
+            const saveTrans = () => {
+                if(!amount) return;
+                const newT = { id:Date.now(), date:selectedDate, type:modalType, amount:parseInt(amount), category:cat, note, timestamp:formatTime() };
+                const updated = [newT, ...transactions];
+                setTransactions(updated);
+                localStorage.setItem(DB_TRANS, JSON.stringify(updated));
+                setAmount(''); setNote(''); setShowModal(false);
+            };
+            const deleteTrans = (id) => {
+                if(!confirm('刪除?')) return;
+                const updated = transactions.filter(t => t.id !== id);
+                setTransactions(updated);
+                localStorage.setItem(DB_TRANS, JSON.stringify(updated));
+            };
+
+            return (
+                <div className="pt-20 px-5 min-h-screen bg-slate-50 animate-pop pb-32">
+                    <div className="flex items-center mb-6">
+                        <button onClick={goBack} className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-600 mr-4 shadow-sm"><i className="fa-solid fa-arrow-left"></i></button>
+                        <h2 className="text-2xl font-black text-slate-700">財務報表</h2>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="flex justify-between items-center mb-4">
+                        <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} className="bg-white px-3 py-2 rounded-xl text-sm font-bold text-slate-600 shadow-sm border-none outline-none" />
+                        <div className="flex gap-2">
+                             <button onClick={() => {setModalType('income'); setCat('現金'); setShowModal(true);}} className="bg-sky-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md active:scale-95">記進帳</button>
+                             <button onClick={() => {setModalType('expense'); setCat('進貨'); setShowModal(true);}} className="bg-white text-rose-500 px-4 py-2 rounded-xl text-xs font-bold shadow-sm active:scale-95">記出帳</button>
+                        </div>
+                    </div>
+
+                    {/* Summary Card */}
+                    <div className="bg-white p-5 rounded-3xl shadow-soft mb-6">
+                        <div className="flex justify-between mb-4">
+                            <div><div className="text-[10px] text-slate-400 font-bold uppercase">淨利</div><div className={`text-2xl font-black ${stats.net>=0?'text-sky-600':'text-rose-500'}`}>{stats.net>0?'+':''}{stats.net.toLocaleString()}</div></div>
+                            <div className="text-right">
+                                <div className="text-xs text-slate-400 mb-1">收 <span className="text-sky-600 font-bold">+{stats.inc.toLocaleString()}</span></div>
+                                <div className="text-xs text-slate-400">支 <span className="text-rose-500 font-bold">-{stats.exp.toLocaleString()}</span></div>
+                            </div>
+                        </div>
+                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-sky-500" style={{width: `${Math.min((stats.inc/(stats.inc+stats.exp+1))*100, 100)}%`}}></div>
+                        </div>
+                    </div>
+
+                    {/* List */}
+                    <div className="space-y-3">
+                        {stats.list.length === 0 ? <div className="text-center text-slate-300 text-xs py-10">尚無紀錄</div> : 
+                            stats.list.map(t => (
+                                <div key={t.id} className="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${t.type==='income'?'bg-sky-100 text-sky-600':'bg-rose-100 text-rose-500'}`}>
+                                            <i className={`fa-solid ${t.type==='income'?'fa-arrow-down':'fa-arrow-up'} text-xs`}></i>
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-bold text-slate-700">{t.category}</div>
+                                            <div className="text-[10px] text-slate-400">{t.timestamp} {t.note && `• ${t.note}`}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`font-bold ${t.type==='income'?'text-sky-600':'text-rose-500'}`}>{t.type==='income'?'+':'-'}{t.amount.toLocaleString()}</span>
+                                        <button onClick={() => deleteTrans(t.id)} className="text-slate-300 text-xs"><i className="fa-solid fa-trash"></i></button>
+                                    </div>
+                                </div>
+                            ))
+                        }
+                    </div>
+
+                    {/* Modal */}
+                    {showModal && (
+                        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-xs rounded-3xl p-6 shadow-2xl animate-pop">
+                                <h3 className="text-lg font-bold text-slate-700 mb-4">{modalType==='income'?'進帳':'出帳'}</h3>
+                                <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="金額" className="w-full text-3xl font-black border-b-2 border-slate-100 py-2 mb-4 focus:outline-none focus:border-sky-500" autoFocus />
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    {(modalType==='income' ? ['現金','刷卡','外送'] : ['進貨','人事','雜支']).map(c => (
+                                        <button key={c} onClick={() => setCat(c)} className={`px-3 py-1 rounded-lg text-xs font-bold border ${cat===c?'bg-sky-500 text-white border-sky-500':'border-slate-200 text-slate-500'}`}>{c}</button>
+                                    ))}
+                                </div>
+                                <input value={note} onChange={e=>setNote(e.target.value)} placeholder="備註..." className="w-full bg-slate-50 rounded-xl px-3 py-2 text-sm mb-6" />
+                                <div className="flex gap-3">
+                                    <button onClick={() => setShowModal(false)} className="flex-1 py-3 bg-slate-100 rounded-xl text-slate-500 font-bold">取消</button>
+                                    <button onClick={saveTrans} className="flex-1 py-3 bg-sky-500 rounded-xl text-white font-bold">確認</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // 5. Timer Page
+        const TimerPage = ({ goBack }) => {
+            const [active, setActive] = useState(null);
+            useEffect(() => {
+                let int;
+                if(active) {
+                    int = setInterval(() => {
+                        const left = active.end - Date.now();
+                        if(left <= 0) { alert('時間到！'); setActive(null); }
+                    }, 1000);
+                }
+                return () => clearInterval(int);
+            }, [active]);
+
+            const start = (min) => setActive({ min, end: Date.now() + min*60000 });
+            const stop = () => setActive(null);
+
+            return (
+                <div className="pt-20 px-6 min-h-screen bg-white animate-pop">
+                    <div className="flex items-center mb-10">
+                        <button onClick={goBack} className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 mr-4"><i className="fa-solid fa-arrow-left"></i></button>
+                        <h2 className="text-2xl font-black text-slate-700">暫離計時</h2>
+                    </div>
+                    
+                    {active ? (
+                        <div className="text-center py-20">
+                            <div className="text-6xl font-black text-orange-500 mb-4 animate-pulse">{active.min} <span className="text-lg">MIN</span></div>
+                            <div className="text-slate-400 text-sm mb-10">計時中...請專心休息</div>
+                            <button onClick={stop} className="px-8 py-3 bg-slate-100 rounded-full text-slate-500 font-bold">取消計時</button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-4">
+                            {[10, 15, 20].map(m => (
+                                <button key={m} onClick={() => start(m)} className="bg-orange-50 py-6 rounded-2xl text-xl font-black text-orange-500 shadow-sm active:scale-95 transition-transform flex items-center justify-center gap-2">
+                                    <i className="fa-solid fa-clock"></i> {m} 分鐘
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // 6. Note Page
+        const NotePage = ({ goBack, logs, setLogs }) => {
+            const [input, setInput] = useState('');
+            const add = () => { if(!input.trim()) return; const n={id:Date.now(), text:input, t:formatTime()}; const u=[n,...logs]; setLogs(u); localStorage.setItem(DB_LOGS, JSON.stringify(u)); setInput(''); };
+            const del = (id) => { const u=logs.filter(l=>l.id!==id); setLogs(u); localStorage.setItem(DB_LOGS, JSON.stringify(u)); };
+
+            return (
+                <div className="pt-20 px-6 min-h-screen bg-white animate-pop">
+                    <div className="flex items-center mb-6">
+                        <button onClick={goBack} className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 mr-4"><i className="fa-solid fa-arrow-left"></i></button>
+                        <h2 className="text-2xl font-black text-slate-700">營運筆記</h2>
+                    </div>
+                    <div className="flex gap-2 mb-6">
+                        <input value={input} onChange={e=>setInput(e.target.value)} placeholder="隨手記..." className="flex-1 bg-slate-50 rounded-xl px-4 py-3 text-sm focus:outline-none" />
+                        <button onClick={add} className="w-12 rounded-xl bg-slate-600 text-white"><i className="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                    <div className="space-y-4">
+                        {logs.map(l => (
+                            <div key={l.id} className="border-l-2 border-slate-200 pl-3 py-1 flex justify-between group">
+                                <div>
+                                    <div className="text-[10px] text-slate-400 font-mono mb-0.5">{l.t}</div>
+                                    <div className="text-sm text-slate-700">{l.text}</div>
+                                </div>
+                                <button onClick={() => del(l.id)} className="text-slate-300 opacity-0 group-hover:opacity-100"><i className="fa-solid fa-times"></i></button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App
         const App = () => {
-            const [page, setPage] = useState('home');
+            const [page, setPage] = useState('home'); // home | todo | ops | timer | note | ai
             const [transactions, setTransactions] = useState([]);
             const [logs, setLogs] = useState([]);
+            const [settings, setSettings] = useState({ dailyFixedCost: 0 });
 
+            // Load Data
             useEffect(() => {
                 const t = localStorage.getItem(DB_TRANS); if(t) setTransactions(JSON.parse(t));
                 const l = localStorage.getItem(DB_LOGS); if(l) setLogs(JSON.parse(l));
+                const s = localStorage.getItem(DB_SETTINGS); if(s) setSettings(JSON.parse(s));
             }, []);
 
-            // Quick Add Modal Logic (Simplified for Demo)
-            const handleQuickAdd = () => {
-                // 直接跳轉到 Ops 頁面並打開記帳 (這裡簡化為跳轉)
-                setPage('ops');
-            };
+            const tasksCount = useMemo(() => {
+                const t = localStorage.getItem(DB_TASKS);
+                if(!t) return 0;
+                return JSON.parse(t).filter(i => i.tab === 'today' && !i.done).length;
+            }, [page]); // Refresh when page changes
+
+            // Navigation
+            const goHome = () => setPage('home');
 
             return (
-                <div className="min-h-screen pb-safe-bottom">
+                <div className="min-h-screen pb-safe-bottom bg-slate-50">
                     <Header />
-                    
-                    {/* Content Area */}
-                    <div className="pt-20 px-5 animate-fade-in">
-                        {page === 'home' && (
-                            <>
-                                <TodoCard />
-                                <StatsBlock transactions={transactions} onQuickAdd={handleQuickAdd} />
-                                <LogCard logs={logs} setLogs={setLogs} />
-                            </>
-                        )}
 
-                        {page === 'ops' && (
-                            <div className="text-center py-20">
-                                <i className="fa-solid fa-calculator text-4xl text-sky-200 mb-4"></i>
-                                <h2 className="text-slate-500 font-bold">營運報表介面</h2>
-                                <p className="text-xs text-slate-400 mt-2">將沿用 v4.8 邏輯但套用新風格 (待續...)</p>
-                                {/* 註：為了不讓程式碼過長，這裡先保留佔位，您的舊有記帳邏輯完全可以搬過來 */}
-                            </div>
-                        )}
-
+                    {/* Page Router */}
+                    <div className="h-screen pt-14 pb-20">
+                        {page === 'home' && <DashboardGrid setPage={setPage} tasksCount={tasksCount} />}
+                        {page === 'todo' && <TodoPage goBack={goHome} />}
+                        {page === 'ops' && <OpsPage goBack={goHome} transactions={transactions} setTransactions={setTransactions} settings={settings} saveSettings={(s) => {setSettings(s); localStorage.setItem(DB_SETTINGS, JSON.stringify(s));}} />}
+                        {page === 'timer' && <TimerPage goBack={goHome} />}
+                        {page === 'note' && <NotePage goBack={goHome} logs={logs} setLogs={setLogs} />}
+                        
                         {page === 'ai' && (
-                            <div className="text-center py-20">
-                                <div className="w-20 h-20 bg-white rounded-full mx-auto flex items-center justify-center shadow-soft mb-6">
-                                    <i className="fa-solid fa-user-tie text-3xl text-sky-500"></i>
-                                </div>
-                                <h2 className="text-lg font-bold text-slate-700">AI 智慧顧問</h2>
-                                <p className="text-xs text-slate-400 mt-2">PLANNING PROGESS</p>
+                            <div className="pt-20 px-6 text-center animate-pop">
+                                <div className="w-20 h-20 bg-white rounded-full mx-auto flex items-center justify-center shadow-soft mb-6 text-sky-500 text-3xl"><i className="fa-solid fa-robot"></i></div>
+                                <h2 className="text-slate-600 font-bold">AI 秘書</h2>
+                                <p className="text-xs text-slate-400 mt-2">功能規劃中</p>
+                                <button onClick={goHome} className="mt-8 text-slate-400 text-sm">返回</button>
                             </div>
                         )}
                     </div>
 
-                    <BottomNav page={page} setPage={setPage} />
+                    {/* Bottom Nav (Floating) */}
+                    {page === 'home' && (
+                        <div className="fixed bottom-8 left-6 right-6 glass-nav h-16 rounded-2xl flex items-center justify-around px-2 z-50">
+                            <button onClick={() => setPage('home')} className="flex flex-col items-center gap-1 text-sky-600 w-full">
+                                <i className="fa-solid fa-grid-2 text-lg"></i>
+                                <span className="text-[10px] font-bold">戰情</span>
+                            </button>
+                            <button onClick={() => setPage('ops')} className="flex flex-col items-center gap-1 text-slate-400 w-full hover:text-sky-600">
+                                <i className="fa-solid fa-chart-pie text-lg"></i>
+                                <span className="text-[10px] font-bold">營運</span>
+                            </button>
+                            <button onClick={() => setPage('ai')} className="flex flex-col items-center gap-1 text-slate-400 w-full hover:text-sky-600">
+                                <i className="fa-solid fa-user-tie text-lg"></i>
+                                <span className="text-[10px] font-bold">秘書</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -359,11 +454,8 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
 
-        // Register SW
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw-v4.8.js');
-            });
+            window.addEventListener('load', () => navigator.serviceWorker.register('./sw-v4.8.js'));
         }
     </script>
 </body>

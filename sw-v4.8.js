@@ -1,5 +1,5 @@
-/* 檔名：sw-v4.8.js (v6.0.A Core) */
-const CACHE_NAME = 'seafood-boss-v6.0.A-final'; // 更新版本號
+/* 檔名：sw-v4.8.js (v6.1 UI Update) */
+const CACHE_NAME = 'seafood-boss-v6.1-color-grid'; // 強制更新介面
 
 const ASSETS_TO_CACHE = [
     './',
